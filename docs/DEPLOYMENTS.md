@@ -12,6 +12,12 @@ All values below were read back from the named testnets on 2026-08-27. Rivyn rem
 
 The escrow read-back resolves the Sepolia registry above, Attestcoin verifier `0x0000000000000000000000000000000000000FD2`, and source chain key `1`.
 
+Source verification status:
+
+- `InvoiceApprovalRegistry`: Sourcify `exact_match` (verification timestamp `2026-08-27T18:31:04Z`).
+- `EvmV1Decoder`: Creditcoin Blockscout `Pass - Verified`.
+- `RivynEscrowASC`: Creditcoin Blockscout `Pass - Verified`; explorer read-back reports `is_changed_bytecode=false` and constructor argument `0xA319834D29875902762747655E8364d8605Da4eD`.
+
 ## First proof-bound settlement
 
 - Invoice ID: `0x3ca6ab04d92fc9bb4f569e07ca4a80c95ac6cc94a89da35baaed0b62ed6fe81a`

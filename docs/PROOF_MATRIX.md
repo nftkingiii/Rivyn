@@ -9,5 +9,5 @@
 | Replay rejection | A transaction query ID can be consumed once | One proof containing two approvals; second release rejected | Local test plus live replay rejection |
 | Escrow recovery | Only the funder can refund after expiry | Early/non-funder rejection and successful expired refund | Local tests pass |
 | Proof API boundary | Strict request schema, explicit CORS, size cap, rate limit, generic errors, no signing key | API tests and response-header inspection | Local tests pass |
-| Testnet deployment | Sepolia registry and CC3 escrow | Addresses, hashes, explorer links | Contracts deployed; public API pending |
+| Testnet deployment | Sepolia registry and CC3 escrow | Addresses, hashes, explorer links | Contracts deployed and source-verified; public API pending |
 | Live user flow | Wallet approval -> proof generation -> wallet release -> read-back | Browser-wallet transaction chain | Verified locally with public transactions |
