@@ -1,0 +1,14 @@
+.env
+.env.local
+.env.*.local
+node_modules/
+out/
+cache/
+broadcast/
+artifacts/
+dist/
+coverage/
+PROJECT_STATE.md
+HACK_EVENT_GATE.json
+demo-day.ics
+
