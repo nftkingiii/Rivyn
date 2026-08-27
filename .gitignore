@@ -9,6 +9,7 @@ artifacts/
 dist/
 dist-web/
 coverage/
+work/
 PROJECT_STATE.md
 HACK_EVENT_GATE.json
 demo-day.ics

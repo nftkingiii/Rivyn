@@ -10,7 +10,7 @@
     "build:web": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "forge test -vvv && node --import tsx --test test-api/**/*.test.ts",
-    "server": "tsx src/server.ts",
+    "server": "node --env-file=.env --import tsx src/server.ts",
     "web": "vite",
     "preview:web": "vite preview",
     "audit": "npm audit --audit-level=high"

@@ -33,7 +33,7 @@ The React interface is also implemented locally:
 - Explicit wrong-wallet, wrong-network, pending, error, success, and deployment-pending states.
 - Client-side input preflight with the contracts retained as final authority.
 
-No deployment, live transaction, or production integration claim is made yet. See [the proof matrix](docs/PROOF_MATRIX.md) for the verified-versus-missing boundary and [backend documentation](docs/BACKEND.md) for setup and API usage.
+The complete testnet settlement path has been exercised: a 1 tCTC CC3 escrow was funded, approved on Sepolia, proven through Attestcoin, and released to the configured payee. See [deployments and live evidence](docs/DEPLOYMENTS.md), [the proof matrix](docs/PROOF_MATRIX.md), and [backend documentation](docs/BACKEND.md).
 
 ## Run the interface
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { BrowserProvider, Contract, getAddress, isAddress, parseEther } from 'ethers';
 import { CREDITCOIN, ESCROW_ABI, SEPOLIA, SOURCE_APPROVAL_ABI, type ChainConfig } from './chains.js';
 import {
@@ -125,9 +125,12 @@ export function App() {
   const [account, setAccount] = useState('');
   const [chainId, setChainId] = useState<number | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
+  const [walletAction, setWalletAction] = useState<ActionState>({ kind: 'idle', message: '' });
   const [action, setAction] = useState<ActionState>({ kind: 'idle', message: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [copied, setCopied] = useState(false);
+  const walletAreaRef = useRef<HTMLDivElement>(null);
 
   const [fund, setFund] = useState({ invoiceId: '', buyer: '', payee: '', amount: '', expiry: expiryDefault() });
   const [approval, setApproval] = useState({ invoiceId: '', payee: '', amount: '' });
@@ -135,6 +138,8 @@ export function App() {
 
   const contractsReady = isConfiguredAddress(sourceContract) && isConfiguredAddress(escrowContract);
   const activeChain = chainId === SEPOLIA.id ? SEPOLIA : chainId === CREDITCOIN.id ? CREDITCOIN : null;
+  const requiredChain = tab === 'approve' ? SEPOLIA : CREDITCOIN;
+  const walletNeedsSwitch = Boolean(account && requiredChain && chainId !== requiredChain.id);
 
   useEffect(() => {
     const ethereum = window.ethereum;
@@ -158,6 +163,22 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!walletMenuOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!walletAreaRef.current?.contains(event.target as Node)) setWalletMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setWalletMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [walletMenuOpen]);
+
   const routeStatus = useMemo(() => [
     { label: 'Source registry', value: isConfiguredAddress(sourceContract) ? shortAddress(sourceContract) : 'Not deployed', ready: isConfiguredAddress(sourceContract) },
     { label: 'CC3 escrow', value: isConfiguredAddress(escrowContract) ? shortAddress(escrowContract) : 'Not deployed', ready: isConfiguredAddress(escrowContract) },
@@ -166,18 +187,23 @@ export function App() {
 
   async function connectWallet() {
     if (!window.ethereum) {
-      setAction({ kind: 'error', message: 'Install an EIP-1193 wallet such as MetaMask to continue.' });
+      setWalletAction({ kind: 'error', message: 'Install an EIP-1193 wallet such as MetaMask to continue.' });
       return;
     }
     setWalletBusy(true);
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
       setAccount(accounts[0] ?? '');
-      const chain = await window.ethereum.request({ method: 'eth_chainId' }) as string;
-      setChainId(Number.parseInt(chain, 16));
+      if (requiredChain) {
+        await ensureChain(requiredChain);
+      } else {
+        const chain = await window.ethereum.request({ method: 'eth_chainId' }) as string;
+        setChainId(Number.parseInt(chain, 16));
+      }
       setAction({ kind: 'idle', message: '' });
+      setWalletAction({ kind: 'idle', message: '' });
     } catch (error) {
-      setAction({ kind: 'error', message: friendlyError(error) });
+      setWalletAction({ kind: 'error', message: friendlyError(error) });
     } finally {
       setWalletBusy(false);
     }
@@ -188,8 +214,11 @@ export function App() {
     try {
       await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chain.hexId }] });
     } catch (error) {
-      const candidate = error as { code?: number };
-      if (candidate.code !== 4902) throw error;
+      const candidate = error as { code?: number; message?: string; data?: { originalError?: { code?: number; message?: string } } };
+      const code = candidate.code ?? candidate.data?.originalError?.code;
+      const message = `${candidate.message ?? ''} ${candidate.data?.originalError?.message ?? ''}`;
+      const chainIsMissing = code === 4902 || /(?:unrecognized|unknown|not added).{0,30}chain|chain.{0,30}(?:unrecognized|unknown|not added)/i.test(message);
+      if (!chainIsMissing) throw error;
       await window.ethereum.request({
         method: 'wallet_addEthereumChain',
         params: [{ chainId: chain.hexId, chainName: chain.name, nativeCurrency: chain.nativeCurrency, rpcUrls: chain.rpcUrls, blockExplorerUrls: [chain.explorer] }],
@@ -203,6 +232,20 @@ export function App() {
     await ensureChain(chain);
     const provider = new BrowserProvider(window.ethereum!);
     return provider.getSigner();
+  }
+
+  async function switchToRequiredChain() {
+    if (!requiredChain) return;
+    setWalletBusy(true);
+    setWalletAction({ kind: 'pending', message: `Requesting ${requiredChain.name} in your wallet…` });
+    try {
+      await ensureChain(requiredChain);
+      setWalletAction({ kind: 'idle', message: '' });
+    } catch (error) {
+      setWalletAction({ kind: 'error', message: friendlyError(error) });
+    } finally {
+      setWalletBusy(false);
+    }
   }
 
   function requireDeployment() {
@@ -296,8 +339,16 @@ export function App() {
 
   function changeTab(next: Tab) {
     setTab(next);
+    setWalletMenuOpen(false);
     setErrors({});
     setAction({ kind: 'idle', message: '' });
+  }
+
+  function disconnectWallet() {
+    setAccount('');
+    setWalletMenuOpen(false);
+    setAction({ kind: 'idle', message: '' });
+    setWalletAction({ kind: 'idle', message: '' });
   }
 
   async function copyInvoiceId(value: string) {
@@ -316,13 +367,26 @@ export function App() {
         <nav className="top-nav" aria-label="Primary navigation">
           {(['overview', 'fund', 'approve', 'prove'] as Tab[]).map((item) => <button key={item} className={tab === item ? 'active' : ''} onClick={() => changeTab(item)}>{item === 'prove' ? 'Prove + release' : item}</button>)}
         </nav>
-        <div className="wallet-area">
-          {account ? <span className="network-pill"><i className={activeChain ? 'online' : 'warning'} />{activeChain?.shortName ?? 'Wrong network'}</span> : null}
-          <button className="wallet-button" onClick={() => void connectWallet()} disabled={walletBusy}>
-            <Icon name="wallet" />{walletBusy ? 'Connecting…' : account ? shortAddress(account) : 'Connect wallet'}
+        <div className="wallet-area" ref={walletAreaRef}>
+          {account && !walletNeedsSwitch ? <span className="network-pill"><i className={activeChain ? 'online' : 'warning'} />{activeChain?.shortName ?? 'Unsupported network'}</span> : null}
+          <button
+            className={`wallet-button ${walletNeedsSwitch ? 'network-switch' : ''}`}
+            onClick={() => void (walletNeedsSwitch ? switchToRequiredChain() : account ? setWalletMenuOpen((open) => !open) : connectWallet())}
+            disabled={walletBusy}
+            aria-expanded={account && !walletNeedsSwitch ? walletMenuOpen : undefined}
+            aria-haspopup={account && !walletNeedsSwitch ? 'menu' : undefined}
+            aria-controls={account && !walletNeedsSwitch ? 'wallet-menu' : undefined}
+          >
+            <Icon name={walletNeedsSwitch ? 'bolt' : 'wallet'} />{walletBusy ? (walletNeedsSwitch ? 'Switching…' : 'Connecting…') : walletNeedsSwitch ? `Switch to ${requiredChain?.shortName}` : account ? shortAddress(account) : 'Connect wallet'}
           </button>
+          {account && !walletNeedsSwitch && walletMenuOpen ? <div className="wallet-menu" id="wallet-menu" role="menu">
+            <div className="wallet-menu-account"><span>Connected account</span><strong>{shortAddress(account)}</strong><small>{activeChain?.name ?? 'Unsupported network'}</small></div>
+            <button type="button" role="menuitem" onClick={disconnectWallet}>Disconnect from Rivyn</button>
+            <p>Wallet permissions remain managed by your extension.</p>
+          </div> : null}
         </div>
       </header>
+      {walletAction.kind !== 'idle' ? <div className="wallet-feedback"><ActionNotice state={walletAction} /></div> : null}
 
       <main>
         {tab === 'overview' ? (
