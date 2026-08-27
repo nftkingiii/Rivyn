@@ -17,7 +17,7 @@ Creditcoin does not trust a relayer, backend, or UI assertion that a Sepolia app
 
 Rejected paths are first-class: a failed source transaction, approval emitted by another contract, wrong invoice/amount/payee, duplicate proof, or an already-finalized escrow must fail.
 
-## Backend status
+## Product status
 
 The backend vertical slice is implemented locally:
 
@@ -26,7 +26,25 @@ The backend vertical slice is implemented locally:
 - Stateless proof API with no signing key.
 - Happy-path and adverse-state tests for exact terms, failed receipts, lookalike emitters, replay, expiry, request validation, CORS, and security headers.
 
+The React interface is also implemented locally:
+
+- Overview of the Sepolia → Attestcoin → Creditcoin settlement route.
+- Wallet-driven fund, approve, and proof-backed release workflows.
+- Explicit wrong-wallet, wrong-network, pending, error, success, and deployment-pending states.
+- Client-side input preflight with the contracts retained as final authority.
+
 No deployment, live transaction, or production integration claim is made yet. See [the proof matrix](docs/PROOF_MATRIX.md) for the verified-versus-missing boundary and [backend documentation](docs/BACKEND.md) for setup and API usage.
+
+## Run the interface
+
+Copy `.env.example` to `.env`, keep the two contract address fields empty until the real deployments exist, then run:
+
+```powershell
+npm run server
+npm run web
+```
+
+The interface opens at `http://127.0.0.1:5173`. It intentionally blocks transactions until both public contract addresses are configured.
 
 ## Security boundary
 

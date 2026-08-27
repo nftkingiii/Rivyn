@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
@@ -10,5 +11,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts", "test-api/**/*.ts"]
+  "include": ["src/**/*.ts", "test-api/**/*.ts", "web/src/**/*.ts", "web/src/**/*.tsx", "vite.config.ts"]
 }

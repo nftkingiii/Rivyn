@@ -7,8 +7,8 @@ cache/
 broadcast/
 artifacts/
 dist/
+dist-web/
 coverage/
 PROJECT_STATE.md
 HACK_EVENT_GATE.json
 demo-day.ics
-
