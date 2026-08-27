@@ -17,13 +17,29 @@ Creditcoin does not trust a relayer, backend, or UI assertion that a Sepolia app
 
 Rejected paths are first-class: a failed source transaction, approval emitted by another contract, wrong invoice/amount/payee, duplicate proof, or an already-finalized escrow must fail.
 
-## Status
+## Backend status
 
-Early build. No deployment, transaction, or integration claim is made yet.
+The backend vertical slice is implemented locally:
+
+- Sepolia buyer-approval registry.
+- Creditcoin native-CTC invoice escrow with Attestcoin verification and strict receipt decoding.
+- Stateless proof API with no signing key.
+- Happy-path and adverse-state tests for exact terms, failed receipts, lookalike emitters, replay, expiry, request validation, CORS, and security headers.
+
+No deployment, live transaction, or production integration claim is made yet. See [the proof matrix](docs/PROOF_MATRIX.md) for the verified-versus-missing boundary and [backend documentation](docs/BACKEND.md) for setup and API usage.
 
 ## Security boundary
 
 Testnet only. Rivyn will not collect seed phrases or private keys. Proof data and submitted transaction hashes are untrusted until the on-chain verifier, receipt-status check, configured-source check, event-term checks, and replay check succeed.
+
+## Verify locally
+
+```powershell
+npm install --ignore-scripts
+npm run build
+npm test
+npm audit --audit-level=high
+```
 
 ## References
 
