@@ -62,15 +62,14 @@ export class ProofService {
   }
 
   async build(request: ProofRequest) {
-    const [sourceNetwork, creditcoinNetwork, transaction, receipt] = await Promise.all([
+    const [sourceNetwork, creditcoinNetwork, receipt] = await Promise.all([
       this.sourceProvider.getNetwork(),
       this.creditcoinProvider.getNetwork(),
-      this.sourceProvider.getTransaction(request.txHash),
       this.sourceProvider.getTransactionReceipt(request.txHash),
     ]);
     if (sourceNetwork.chainId !== 11155111n) throw new ProofError('WRONG_SOURCE_NETWORK', 'Source RPC is not Sepolia', 503);
     if (creditcoinNetwork.chainId !== 102031n) throw new ProofError('WRONG_CREDITCOIN_NETWORK', 'Creditcoin RPC is not CC3 Testnet', 503);
-    if (!transaction || transaction.blockNumber === null || !receipt) {
+    if (!receipt) {
       throw new ProofError('TRANSACTION_NOT_MINED', 'Transaction is missing or not mined', 404);
     }
     if (receipt.status !== 1) throw new ProofError('TRANSACTION_FAILED', 'Source transaction failed');
@@ -93,7 +92,7 @@ export class ProofService {
       source: {
         chainId: sourceNetwork.chainId.toString(),
         transactionHash: request.txHash,
-        blockNumber: transaction.blockNumber,
+        blockNumber: receipt.blockNumber,
         sourceContract: this.config.sourceApprovalContract,
       },
       releaseCall: {
