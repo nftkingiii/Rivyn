@@ -1,4 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { extname, resolve, sep } from 'node:path';
 import { ZodError } from 'zod';
 import { loadConfig } from './config.js';
 import { ProofError, ProofRequestSchema, ProofService } from './proof.js';
@@ -8,13 +11,32 @@ const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT = 20;
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
-function securityHeaders(response: ServerResponse) {
-  response.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+const MIME_TYPES: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+};
+
+function commonSecurityHeaders(response: ServerResponse) {
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'DENY');
   response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+}
+
+function apiSecurityHeaders(response: ServerResponse) {
+  commonSecurityHeaders(response);
+  response.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
   response.setHeader('Cache-Control', 'no-store');
+}
+
+function webSecurityHeaders(response: ServerResponse) {
+  commonSecurityHeaders(response);
+  response.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'");
 }
 
 function json(response: ServerResponse, status: number, body: unknown) {
@@ -56,9 +78,40 @@ function rateLimited(request: IncomingMessage) {
 
 type ProofBuilder = { build(input: ReturnType<typeof ProofRequestSchema.parse>): Promise<unknown> };
 
-export function createRivynServer(config = loadConfig(), proofService: ProofBuilder = new ProofService(config)) {
+async function serveWeb(request: IncomingMessage, response: ServerResponse, webRoot: string) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
+  const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+  const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const candidate = resolve(webRoot, requested);
+  const safeRoot = `${resolve(webRoot)}${sep}`;
+  if (candidate !== resolve(webRoot) && !candidate.startsWith(safeRoot)) return false;
+
+  let file = candidate;
+  try {
+    if (!(await stat(file)).isFile()) return false;
+  } catch {
+    file = resolve(webRoot, 'index.html');
+    try {
+      if (!(await stat(file)).isFile()) return false;
+    } catch {
+      return false;
+    }
+  }
+
+  webSecurityHeaders(response);
+  response.statusCode = 200;
+  response.setHeader('Content-Type', MIME_TYPES[extname(file)] ?? 'application/octet-stream');
+  response.setHeader('Cache-Control', file.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable');
+  if (request.method === 'HEAD') return response.end(), true;
+  createReadStream(file).pipe(response);
+  return true;
+}
+
+export function createRivynServer(config = loadConfig(), proofService: ProofBuilder = new ProofService(config), webRoot = resolve('dist-web')) {
   return createServer(async (request, response) => {
-    securityHeaders(response);
+    const isApiRequest = request.url === '/healthz' || request.url?.startsWith('/v1/') || request.method === 'OPTIONS';
+    if (!isApiRequest && await serveWeb(request, response, webRoot)) return;
+    apiSecurityHeaders(response);
     const origin = request.headers.origin;
     if (origin && config.allowedOrigins.has(origin)) {
       response.setHeader('Access-Control-Allow-Origin', origin);
@@ -76,7 +129,12 @@ export function createRivynServer(config = loadConfig(), proofService: ProofBuil
 
     try {
       if (request.method === 'GET' && request.url === '/healthz') {
-        return json(response, 200, { ok: true, service: 'rivyn-proof-api', version: '0.1.0' });
+        return json(response, 200, {
+          ok: true,
+          service: 'rivyn',
+          version: '0.1.0',
+          revision: process.env.APP_REVISION ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? 'development',
+        });
       }
       if (request.method === 'POST' && request.url === '/v1/proofs') {
         const input = ProofRequestSchema.parse(await readJson(request));
@@ -94,6 +152,6 @@ export function createRivynServer(config = loadConfig(), proofService: ProofBuil
 if (process.env.NODE_ENV !== 'test') {
   const config = loadConfig();
   createRivynServer(config).listen(config.port, '0.0.0.0', () => {
-    console.log(`Rivyn proof API listening on port ${config.port}`);
+    process.stdout.write(`Rivyn service listening on port ${config.port}\n`);
   });
 }

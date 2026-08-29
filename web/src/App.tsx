@@ -14,7 +14,7 @@ type Tab = 'overview' | 'fund' | 'approve' | 'prove';
 type ActionState = { kind: 'idle' | 'pending' | 'success' | 'error'; message: string; hash?: string; explorer?: string };
 type FormErrors = Record<string, string>;
 
-const proofApi = (import.meta.env.VITE_PROOF_API_URL ?? 'http://localhost:8787').replace(/\/$/, '');
+const proofApi = (import.meta.env.VITE_PROOF_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:8787')).replace(/\/$/, '');
 const sourceContract = import.meta.env.VITE_SOURCE_APPROVAL_CONTRACT ?? '';
 const escrowContract = import.meta.env.VITE_ESCROW_CONTRACT ?? '';
 

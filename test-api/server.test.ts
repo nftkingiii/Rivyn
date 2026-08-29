@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import test from 'node:test';
 import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { AppConfig } from '../src/config.js';
 
 process.env.NODE_ENV = 'test';
@@ -31,7 +34,30 @@ test('health endpoint sends hardened headers', async () => withServer(async (bas
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(response.headers.get('x-frame-options'), 'DENY');
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    service: 'rivyn',
+    version: '0.1.0',
+    revision: 'development',
+  });
 }));
+
+test('serves the production web app with browser-safe headers', async () => {
+  const webRoot = await mkdtemp(join(tmpdir(), 'rivyn-web-'));
+  await writeFile(join(webRoot, 'index.html'), '<!doctype html><title>Rivyn</title>');
+  const server = createRivynServer(config, { build: async () => ({ proof: true }) }, webRoot);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { port } = server.address() as AddressInfo;
+    const response = await fetch(`http://127.0.0.1:${port}/prove`);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /<title>Rivyn<\/title>/);
+    assert.match(response.headers.get('content-security-policy') ?? '', /script-src 'self'/);
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    await rm(webRoot, { recursive: true, force: true });
+  }
+});
 
 test('rejects unapproved origins and malformed proof requests', async () => withServer(async (base) => {
   const forbidden = await fetch(`${base}/v1/proofs`, {
