@@ -19,21 +19,23 @@ Rejected paths are first-class: a failed source transaction, approval emitted by
 
 ## Product status
 
-The backend vertical slice is implemented locally:
+The complete app and stateless proof API are live at **[rivyn.up.railway.app](https://rivyn.up.railway.app)**. The production service exposes its deployed Git revision at [`/healthz`](https://rivyn.up.railway.app/healthz).
+
+The backend vertical slice includes:
 
 - Sepolia buyer-approval registry.
 - Creditcoin native-CTC invoice escrow with Attestcoin verification and strict receipt decoding.
 - Stateless proof API with no signing key.
 - Happy-path and adverse-state tests for exact terms, failed receipts, lookalike emitters, replay, expiry, request validation, CORS, and security headers.
 
-The React interface is also implemented locally:
+The React interface includes:
 
 - Overview of the Sepolia → Attestcoin → Creditcoin settlement route.
 - Wallet-driven fund, approve, and proof-backed release workflows.
 - Explicit wrong-wallet, wrong-network, pending, error, success, and deployment-pending states.
 - Client-side input preflight with the contracts retained as final authority.
 
-The complete testnet settlement path has been exercised: a 1 tCTC CC3 escrow was funded, approved on Sepolia, proven through Attestcoin, and released to the configured payee. See [deployments and live evidence](docs/DEPLOYMENTS.md), [the proof matrix](docs/PROOF_MATRIX.md), and [backend documentation](docs/BACKEND.md).
+The complete testnet settlement path has been exercised: a 1 tCTC CC3 escrow was funded, approved on Sepolia, proven through Attestcoin, and released to the configured payee. The production proof endpoint also rebuilt the Attestcoin payload for that approval. See [deployments and live evidence](docs/DEPLOYMENTS.md), [the proof matrix](docs/PROOF_MATRIX.md), and [backend documentation](docs/BACKEND.md).
 
 ## Run the interface
 

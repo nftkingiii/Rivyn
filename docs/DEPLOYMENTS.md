@@ -2,6 +2,15 @@
 
 All values below were read back from the named testnets on 2026-08-27. Rivyn remains testnet-only.
 
+## Public app
+
+- App and proof API: [https://rivyn.up.railway.app](https://rivyn.up.railway.app)
+- Health and live revision: [https://rivyn.up.railway.app/healthz](https://rivyn.up.railway.app/healthz)
+- Deployment source: GitHub `main`; Railway rebuilds from the public repository.
+- Rollback path: redeploy the last known-good Railway deployment or revert the failing commit on `main`.
+
+Production verification on 2026-08-29 confirmed the app page and hashed assets returned HTTP 200, the health revision matched the deployed Git commit, and the public proof endpoint rebuilt the approval proof for block `11579322` with chain key `1`, eight Merkle siblings, and 79 continuity roots.
+
 ## Contracts
 
 | Network | Contract | Address | Deployment transaction |
